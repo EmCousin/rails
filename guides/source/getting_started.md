@@ -28,7 +28,7 @@ curve diving straight into Rails. There are several curated lists of online reso
 for learning Ruby:
 
 * [Official Ruby Programming Language website](https://www.ruby-lang.org/en/documentation/)
-* [List of Free Programming Books](https://github.com/EbookFoundation/free-programming-books/blob/master/free-programming-books.md#ruby)
+* [List of Free Programming Books](https://github.com/EbookFoundation/free-programming-books/blob/master/books/free-programming-books.md#ruby)
 
 Be aware that some resources, while still excellent, cover older versions of
 Ruby, and may not include some syntax that you will see in day-to-day
@@ -801,7 +801,7 @@ class ArticlesController < ApplicationController
     if @article.save
       redirect_to @article
     else
-      render :new
+      render :new, status: :unprocessable_entity
     end
   end
 end
@@ -814,7 +814,8 @@ will render `app/views/articles/new.html.erb`, which we will create next.
 The `create` action instantiates a new article with values for the title and
 body, and attempts to save it. If the article is saved successfully, the action
 redirects the browser to the article's page at `"http://localhost:3000/articles/#{@article.id}"`.
-Else, the action redisplays the form by rendering `app/views/articles/new.html.erb`.
+Else, the action redisplays the form by rendering `app/views/articles/new.html.erb`
+with a status code 4XX for the app to work fine with [Turbo](https://github.com/hotwired/turbo-rails).
 The title and body here are dummy values. After we create the form, we will come
 back and change these.
 
@@ -836,7 +837,7 @@ Let's create `app/views/articles/new.html.erb` with the following contents:
 ```html+erb
 <h1>New Article</h1>
 
-<%= form_with model: @article, local: true do |form| %>
+<%= form_with model: @article do |form| %>
   <div>
     <%= form.label :title %><br>
     <%= form.text_field :title %>
@@ -858,10 +859,6 @@ helper method instantiates a form builder. In the `form_with` block we call
 methods like [`label`](https://api.rubyonrails.org/classes/ActionView/Helpers/FormBuilder.html#method-i-label)
 and [`text_field`](https://api.rubyonrails.org/classes/ActionView/Helpers/FormBuilder.html#method-i-text_field)
 on the form builder to output the appropriate form elements.
-
-NOTE: By default, `form_with` creates a form that submits via Ajax to avoid full
-page reloads. To make this guide easier to follow, we have disabled that feature
-by using `local: true` in the above code.
 
 The resulting output from our `form_with` call will look like:
 
@@ -930,7 +927,7 @@ class ArticlesController < ApplicationController
     if @article.save
       redirect_to @article
     else
-      render :new
+      render :new, status: :unprocessable_entity
     end
   end
 
@@ -980,11 +977,11 @@ display any error messages for `title` and `body`:
 ```html+erb
 <h1>New Article</h1>
 
-<%= form_with model: @article, local: true do |form| %>
+<%= form_with model: @article do |form| %>
   <div>
     <%= form.label :title %><br>
     <%= form.text_field :title %>
-    <%= @article.errors.full_messages_for(:title).each do |message| %>
+    <% @article.errors.full_messages_for(:title).each do |message| %>
       <div><%= message %></div>
     <% end %>
   </div>
@@ -992,7 +989,7 @@ display any error messages for `title` and `body`:
   <div>
     <%= form.label :body %><br>
     <%= form.text_area :body %><br>
-    <%= @article.errors.full_messages_for(:body).each do |message| %>
+    <% @article.errors.full_messages_for(:body).each do |message| %>
       <div><%= message %></div>
     <% end %>
   </div>
@@ -1021,7 +1018,7 @@ To understand how all of this works together, let's take another look at the
     if @article.save
       redirect_to @article
     else
-      render :new
+      render :new, status: :unprocessable_entity
     end
   end
 ```
@@ -1034,8 +1031,8 @@ messages.
 When we submit the form, the `POST /articles` request is mapped to the `create`
 action. The `create` action *does* attempt to save `@article`. Therefore,
 validations *are* checked. If any validation fails, `@article` will not be
-saved, and `app/views/articles/new.html.erb` will be rendered with error
-messages.
+saved, `app/views/articles/new.html.erb` will be rendered with error
+messages with a status code 4XX for the app to work fine with [Turbo](https://github.com/hotwired/turbo-rails).
 
 TIP: To learn more about validations, see [Active Record Validations](
 active_record_validations.html). To learn more about validation error messages,
@@ -1094,7 +1091,7 @@ class ArticlesController < ApplicationController
     if @article.save
       redirect_to @article
     else
-      render :new
+      render :new, status: :unprocessable_entity
     end
   end
 
@@ -1108,7 +1105,7 @@ class ArticlesController < ApplicationController
     if @article.update(article_params)
       redirect_to @article
     else
-      render :edit
+      render :edit, status: :unprocessable_entity
     end
   end
 
@@ -1129,8 +1126,9 @@ action will render `app/views/articles/edit.html.erb`.
 The `update` action (re-)fetches the article from the database, and attempts
 to update it with the submitted form data filtered by `article_params`. If no
 validations fail and the update is successful, the action redirects the browser
-to the article's page. Else, the action redisplays the form, with error
-messages, by rendering `app/views/articles/edit.html.erb`.
+to the article's page. Else, the action redisplays the form with error
+messages, by rendering `app/views/articles/edit.html.erb` with a status code 4XX
+for the app to work fine with [Turbo](https://github.com/hotwired/turbo-rails).
 
 #### Using Partials to Share View Code
 
@@ -1144,11 +1142,11 @@ view called a *partial*. Let's create `app/views/articles/_form.html.erb` with
 the following contents:
 
 ```html+erb
-<%= form_with model: article, local: true do |form| %>
+<%= form_with model: article do |form| %>
   <div>
     <%= form.label :title %><br>
     <%= form.text_field :title %>
-    <%= article.errors.full_messages_for(:title).each do |message| %>
+    <% article.errors.full_messages_for(:title).each do |message| %>
       <div><%= message %></div>
     <% end %>
   </div>
@@ -1156,7 +1154,7 @@ the following contents:
   <div>
     <%= form.label :body %><br>
     <%= form.text_area :body %><br>
-    <%= article.errors.full_messages_for(:body).each do |message| %>
+    <% article.errors.full_messages_for(:body).each do |message| %>
       <div><%= message %></div>
     <% end %>
   </div>
@@ -1244,7 +1242,7 @@ class ArticlesController < ApplicationController
     if @article.save
       redirect_to @article
     else
-      render :new
+      render :new, status: :unprocessable_entity
     end
   end
 
@@ -1258,7 +1256,7 @@ class ArticlesController < ApplicationController
     if @article.update(article_params)
       redirect_to @article
     else
-      render :edit
+      render :edit, status: :unprocessable_entity
     end
   end
 
@@ -1494,7 +1492,7 @@ So first, we'll wire up the Article show template
 </ul>
 
 <h2>Add a comment:</h2>
-<%= form_with model: [ @article, @article.comments.build ], local: true do |form| %>
+<%= form_with model: [ @article, @article.comments.build ] do |form| %>
   <p>
     <%= form.label :commenter %><br>
     <%= form.text_field :commenter %>
@@ -1573,7 +1571,7 @@ add that to the `app/views/articles/show.html.erb`.
 <% end %>
 
 <h2>Add a comment:</h2>
-<%= form_with model: [ @article, @article.comments.build ], local: true do |form| %>
+<%= form_with model: [ @article, @article.comments.build ] do |form| %>
   <p>
     <%= form.label :commenter %><br>
     <%= form.text_field :commenter %>
@@ -1637,7 +1635,7 @@ following:
 <%= render @article.comments %>
 
 <h2>Add a comment:</h2>
-<%= form_with model: [ @article, @article.comments.build ], local: true do |form| %>
+<%= form_with model: [ @article, @article.comments.build ] do |form| %>
   <p>
     <%= form.label :commenter %><br>
     <%= form.text_field :commenter %>
@@ -1664,7 +1662,7 @@ Let us also move that new comment section out to its own partial. Again, you
 create a file `app/views/comments/_form.html.erb` containing:
 
 ```html+erb
-<%= form_with model: [ @article, @article.comments.build ], local: true do |form| %>
+<%= form_with model: [ @article, @article.comments.build ] do |form| %>
   <p>
     <%= form.label :commenter %><br>
     <%= form.text_field :commenter %>
@@ -1708,17 +1706,16 @@ the `app/views/comments` directory.
 The `@article` object is available to any partials rendered in the view because
 we defined it as an instance variable.
 
-
 ### Using Concerns
 
 Concerns are a way to make large controllers or models easier to understand and manage. This also has the advantage of reusability when multiple models (or controllers) share the same concerns. Concerns are implemented using modules that contain methods representing a well-defined slice of the functionality that a model or controller is responsible for. In other languages, modules are often known as mixins.
 
 You can use concerns in your controller or model the same way you would use any module. When you first created your app with `rails new blog`, two folders were created within `app/` along with the rest:
 
- ```
- app/controllers/concerns
- app/models/concerns
- ```
+```
+app/controllers/concerns
+app/models/concerns
+```
 
 A given blog article might have various statuses - for instance, it might be visible to everyone (i.e. `public`), or only visible to the author (i.e. `private`). It may also be hidden to all but still retrievable (i.e. `archived`). Comments may similarly be hidden or visible. This could be represented using a `status` column in each model.
 
@@ -1733,7 +1730,7 @@ class Article < ApplicationRecord
 
   VALID_STATUSES = ['public', 'private', 'archived']
 
-  validates :status, in: VALID_STATUSES
+  validates :status, inclusion: { in: VALID_STATUSES }
 
   def archived?
     status == 'archived'
@@ -1749,7 +1746,7 @@ class Comment < ApplicationRecord
 
   VALID_STATUSES = ['public', 'private', 'archived']
 
-  validates :status, in: VALID_STATUSES
+  validates :status, inclusion: { in: VALID_STATUSES }
 
   def archived?
     status == 'archived'
@@ -1795,10 +1792,10 @@ We can add our status validation to the concern, but this is slightly more compl
 module Visible
   extend ActiveSupport::Concern
 
-  included do
-    VALID_STATUSES = ['public', 'private', 'archived']
+  VALID_STATUSES = ['public', 'private', 'archived']
 
-    validates :status, in: VALID_STATUSES
+  included do
+    validates :status, inclusion: { in: VALID_STATUSES }
   end
 
   def archived?
@@ -1840,7 +1837,7 @@ module Visible
   VALID_STATUSES = ['public', 'private', 'archived']
 
   included do
-    validates :status, in: VALID_STATUSES
+    validates :status, inclusion: { in: VALID_STATUSES }
   end
 
   class_methods do
@@ -1873,6 +1870,52 @@ Our blog has <%= Article.public_count %> articles and counting!
 <%= link_to "New Article", new_article_path %>
 ```
 
+There are a few more steps to be carried out before our application works with the addition of `status` column. First, let's run the following migrations to add `status` to `Articles` and `Comments`:
+
+```bash
+$ bin/rails generate migration AddStatusToArticles status:string
+$ bin/rails generate migration AddStatusToComments status:string
+```
+
+TIP: To learn more about migrations, see [Active Record Migrations](
+active_record_migrations.html).
+
+We also have to permit the `:status` key as part of the strong parameter, in `app/controllers/articles_controller.rb`:
+
+```ruby
+  private
+    def article_params
+      params.require(:article).permit(:title, :body, :status)
+    end
+```
+
+and in `app/controllers/comments_controller.rb`:
+
+```ruby
+  private
+    def comment_params
+      params.require(:comment).permit(:commenter, :body, :status)
+    end
+```
+
+To finish up, we will add a select box to the forms, and let the user select the status when they create a new article or post a new comment. We can also specify the default status as `public`. In `app/views/articles/_form.html.erb`, we can add:
+
+```html+erb
+<div>
+  <%= form.label :status %><br>
+  <%= form.select :status, ['public', 'private', 'archived'], selected: 'public' %>
+</div>
+```
+
+and in `app/views/comments/_form.html.erb`:
+
+```html+erb
+<p>
+  <%= form.label :status %><br>
+  <%= form.select :status, ['public', 'private', 'archived'], selected: 'public' %>
+</p>
+```
+
 Deleting Comments
 -----------------
 
@@ -1896,8 +1939,8 @@ So first, let's add the delete link in the
 
 <p>
   <%= link_to 'Destroy Comment', [comment.article, comment],
-               method: :delete,
-               data: { confirm: "Are you sure?" } %>
+              method: :delete,
+              data: { confirm: "Are you sure?" } %>
 </p>
 ```
 
@@ -1931,7 +1974,6 @@ end
 The `destroy` action will find the article we are looking at, locate the comment
 within the `@article.comments` collection, and then remove it from the
 database and send us back to the show action for the article.
-
 
 ### Deleting Associated Objects
 
@@ -2010,7 +2052,6 @@ authentication add-ons for Rails are the
 [Devise](https://github.com/plataformatec/devise) rails engine and
 the [Authlogic](https://github.com/binarylogic/authlogic) gem,
 along with a number of others.
-
 
 ### Other Security Considerations
 

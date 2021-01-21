@@ -37,7 +37,7 @@ module ActiveRecord
       include Savepoints
 
       SIMPLE_INT = /\A\d+\z/
-      COMMENT_REGEX = %r{(?:\-\-.*\n)*|/\*(?:[^\*]|\*[^/])*\*/}m
+      COMMENT_REGEX = %r{(?:--.*\n)*|/\*(?:[^*]|\*[^/])*\*/}m
 
       attr_accessor :pool
       attr_reader :visitor, :owner, :logger, :lock
@@ -69,7 +69,7 @@ module ActiveRecord
       def self.build_read_query_regexp(*parts) # :nodoc:
         parts += DEFAULT_READ_QUERY
         parts = parts.map { |part| /#{part}/i }
-        /\A(?:[\(\s]|#{COMMENT_REGEX})*#{Regexp.union(*parts)}/
+        /\A(?:[(\s]|#{COMMENT_REGEX})*#{Regexp.union(*parts)}/
       end
 
       def self.quoted_column_names # :nodoc:
@@ -111,16 +111,21 @@ module ActiveRecord
         @config.fetch(:use_metadata_table, true)
       end
 
-      # Determines whether writes are currently being prevents.
+      # Determines whether writes are currently being prevented.
       #
-      # Returns true if the connection is a replica, or if +prevent_writes+
-      # is set to true.
+      # Returns true if the connection is a replica.
+      #
+      # If the application is using legacy handling, returns
+      # true if `connection_handler.prevent_writes` is set.
+      #
+      # If the application is using the new connection handling
+      # will return true based on `current_preventing_writes`.
       def preventing_writes?
-        if ActiveRecord::Base.legacy_connection_handling
-          replica? || ActiveRecord::Base.connection_handler.prevent_writes
-        else
-          replica? || ActiveRecord::Base.current_preventing_writes
-        end
+        return true if replica?
+        return ActiveRecord::Base.connection_handler.prevent_writes if ActiveRecord::Base.legacy_connection_handling
+        return false if connection_klass.nil?
+
+        connection_klass.current_preventing_writes
       end
 
       def migrations_paths # :nodoc:
@@ -194,6 +199,10 @@ module ActiveRecord
         end
 
         @owner = Thread.current
+      end
+
+      def connection_klass # :nodoc:
+        @pool.connection_klass
       end
 
       def schema_cache
@@ -499,6 +508,12 @@ module ActiveRecord
       # overridden by concrete adapters.
       def reset!
         # this should be overridden by concrete adapters
+      end
+
+      # Removes the connection from the pool and disconnect it.
+      def throw_away!
+        pool.remove self
+        disconnect!
       end
 
       # Clear any caching the database adapter may be doing.

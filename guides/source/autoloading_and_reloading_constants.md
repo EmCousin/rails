@@ -16,7 +16,6 @@ After reading this guide, you will know:
 
 --------------------------------------------------------------------------------
 
-
 Introduction
 ------------
 
@@ -160,7 +159,7 @@ $PAYMENT_GATEWAY = Rails.env.production? ? RealGateway : MockedGateway
 # DO NOT DO THIS.
 ```
 
-The idea would be to use `$PAYMENT_GATEWAY` in the code, and let the initializer set that to the actual implementation dependending on the environment.
+The idea would be to use `$PAYMENT_GATEWAY` in the code, and let the initializer set that to the actual implementation depending on the environment.
 
 On reload, `MockedGateway` is reloaded, but `$PAYMENT_GATEWAY` is not updated because initializers only run on boot. Therefore, it won't reflect the changes.
 
@@ -205,6 +204,18 @@ end
 That block runs when the application boots, and every time code is reloaded.
 
 NOTE: For historical reasons, this callback may run twice. The code it executes must be idempotent.
+
+However, if you do not need to reload the class, it is easier to define it in a directory which does not belong to the autoload paths. For instance, `lib` is an idiomatic choice, it does not belong to the autoload paths by default but it belongs to `$LOAD_PATH`. Then, in the place the class is needed at boot time, just perform a regular `require` to load it.
+
+For example, there is no point in defining reloadable Rack middleware, because changes would not be reflected in the instance stored in the middleware stack anyway. If `lib/my_app/middleware/foo.rb` defines a middleware class, then in `config/application.rb` you write:
+
+```ruby
+require "my_app/middleware/foo"
+...
+config.middleware.use MyApp::Middleware::Foo
+```
+
+To have changes in that middleware reflected, you need to restart the server.
 
 
 Eager Loading
@@ -278,11 +289,15 @@ require "sti_preload"
 class Shape < ApplicationRecord
   include StiPreload # Only in the root class.
 end
+```
 
+```ruby
 # app/models/polygon.rb
 class Polygon < Shape
 end
+```
 
+```ruby
 # app/models/triangle.rb
 class Triangle < Polygon
 end
@@ -391,7 +406,7 @@ class Admin::UsersController < ApplicationController
 end
 ```
 
-was not recommended because the resolution of constants inside their body was britle. You'd better write them in this style:
+was not recommended because the resolution of constants inside their body was brittle. You'd better write them in this style:
 
 ```ruby
 module Admin

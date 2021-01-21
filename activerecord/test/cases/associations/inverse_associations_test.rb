@@ -20,7 +20,8 @@ require "models/developer"
 require "models/company"
 require "models/project"
 require "models/author"
-require "models/post"
+require "models/user"
+require "models/room"
 
 class AutomaticInverseFindingTests < ActiveRecord::TestCase
   fixtures :ratings, :comments, :cars
@@ -83,6 +84,29 @@ class AutomaticInverseFindingTests < ActiveRecord::TestCase
     assert_respond_to author_child_reflection, :has_inverse?
     assert author_child_reflection.has_inverse?, "The Author reflection should have an inverse"
     assert_equal post_reflection, author_child_reflection.inverse_of, "The Author reflection's inverse should be the Post reflection"
+  end
+
+  def test_has_one_and_belongs_to_with_non_default_foreign_key_should_not_find_inverse_automatically
+    user = User.create!
+    owned_room = Room.create!(owner: user)
+
+    assert_nil user.room
+    assert_nil owned_room.user
+
+    assert_equal user, owned_room.owner
+    assert_equal owned_room, user.owned_room
+  end
+
+  def test_has_one_and_belongs_to_with_custom_association_name_should_not_find_wrong_inverse_automatically
+    user_reflection = Room.reflect_on_association(:user)
+    owner_reflection = Room.reflect_on_association(:owner)
+    room_reflection = User.reflect_on_association(:room)
+
+    assert_predicate user_reflection, :has_inverse?
+    assert_equal room_reflection, user_reflection.inverse_of
+
+    assert_not_predicate owner_reflection, :has_inverse?
+    assert_not_equal room_reflection, owner_reflection.inverse_of
   end
 
   def test_has_one_and_belongs_to_automatic_inverse_shares_objects
@@ -325,7 +349,7 @@ class InverseHasOneTests < ActiveRecord::TestCase
 end
 
 class InverseHasManyTests < ActiveRecord::TestCase
-  fixtures :humans, :interests, :posts, :authors, :author_addresses
+  fixtures :humans, :interests, :posts, :authors, :author_addresses, :comments
 
   def test_parent_instance_should_be_shared_with_every_child_on_find
     human = humans(:gordon)
@@ -509,6 +533,24 @@ class InverseHasManyTests < ActiveRecord::TestCase
     assert_not_predicate human.interests, :loaded?
   end
 
+  def test_find_on_child_instance_with_id_should_set_inverse_instances
+    human = Human.create!
+    interest = Interest.create!(human: human)
+
+    child = human.interests.find(interest.id)
+    assert_predicate child.association(:human), :loaded?
+  end
+
+  def test_find_on_child_instances_with_ids_should_set_inverse_instances
+    human = Human.create!
+    interests = Array.new(2) { Interest.create!(human: human) }
+
+    children = human.interests.find(interests.pluck(:id))
+    children.each do |child|
+      assert_predicate child.association(:human), :loaded?
+    end
+  end
+
   def test_raise_record_not_found_error_when_invalid_ids_are_passed
     # delete all interest records to ensure that hard coded invalid_id(s)
     # are indeed invalid.
@@ -567,6 +609,14 @@ class InverseHasManyTests < ActiveRecord::TestCase
       assert_predicate Human.includes(:interests).first.interests, :any?
       assert_predicate Human.joins(:interests).includes(:interests).first.interests, :any?
     end
+  end
+
+  def test_inverse_works_when_the_association_self_references_the_same_object
+    comment = comments(:greetings)
+    Comment.create!(parent: comment, post_id: comment.post_id, body: "New Comment")
+
+    comment.body = "OMG"
+    assert_equal comment.body, comment.children.first.parent.body
   end
 end
 

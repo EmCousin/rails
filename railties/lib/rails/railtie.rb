@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/initializable"
+require "active_support/descendants_tracker"
 require "active_support/inflector"
 require "active_support/core_ext/module/introspection"
 require "active_support/core_ext/module/delegation"
@@ -119,11 +120,11 @@ module Rails
   # this less confusing for everyone.
   # It can be used like this:
   #
-  # class MyRailtie < Rails::Railtie
-  #   server do
-  #     WebpackServer.start
+  #   class MyRailtie < Rails::Railtie
+  #     server do
+  #       WebpackServer.start
+  #     end
   #   end
-  # end
   #
   # == Application and Engine
   #
@@ -135,6 +136,7 @@ module Rails
   class Railtie
     autoload :Configuration, "rails/railtie/configuration"
 
+    extend ActiveSupport::DescendantsTracker
     include Initializable
 
     ABSTRACT_RAILTIES = %w(Rails::Railtie Rails::Engine Rails::Application)
@@ -144,13 +146,7 @@ module Rails
       delegate :config, to: :instance
 
       def subclasses
-        @subclasses ||= []
-      end
-
-      def inherited(base)
-        unless base.abstract_railtie?
-          subclasses << base
-        end
+        super.reject(&:abstract_railtie?)
       end
 
       def rake_tasks(&blk)

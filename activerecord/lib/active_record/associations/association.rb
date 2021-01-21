@@ -211,12 +211,8 @@ module ActiveRecord
 
       private
         def find_target
-          if owner.strict_loading?
-            Base.strict_loading_violation!(owner: owner.class, association: klass)
-          end
-
-          if reflection.strict_loading?
-            Base.strict_loading_violation!(owner: owner.class, association: reflection.name)
+          if (owner.strict_loading? || reflection.strict_loading?) && owner.validation_context.nil?
+            Base.strict_loading_violation!(owner: owner.class, reflection: reflection)
           end
 
           scope = self.scope
@@ -341,7 +337,8 @@ module ActiveRecord
 
         def matches_foreign_key?(record)
           if foreign_key_for?(record)
-            record.read_attribute(reflection.foreign_key) == owner.id
+            record.read_attribute(reflection.foreign_key) == owner.id ||
+              (foreign_key_for?(owner) && owner.read_attribute(reflection.foreign_key) == record.id)
           else
             owner.read_attribute(reflection.foreign_key) == record.id
           end

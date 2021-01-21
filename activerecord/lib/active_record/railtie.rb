@@ -31,7 +31,7 @@ module ActiveRecord
     config.active_record.maintain_test_schema = true
     config.active_record.has_many_inversing = false
 
-    config.active_record.queues = ActiveSupport::InheritableOptions.new(destroy: :active_record_destroy)
+    config.active_record.queues = ActiveSupport::InheritableOptions.new
 
     config.eager_load_namespaces << ActiveRecord
 
@@ -166,10 +166,6 @@ To keep using the current cache store, you can turn off cache versioning entirel
           if app.config.eager_load
             begin
               descendants.each do |model|
-                # SchemaMigration and InternalMetadata both override `table_exists?`
-                # to bypass the schema cache, so skip them to avoid the extra queries.
-                next if model._internal?
-
                 # If the schema cache was loaded from a dump, we can use it without connecting
                 schema_cache = model.connection_pool.schema_cache
 
@@ -183,7 +179,7 @@ To keep using the current cache store, you can turn off cache versioning entirel
                 end
               end
             rescue ActiveRecordError => error
-              # Regardless of wether there was already a connection or not, we rescue any database
+              # Regardless of whether there was already a connection or not, we rescue any database
               # error because it is critical that the application can boot even if the database
               # is unhealthy.
               warn "Failed to define attribute methods because of #{error.class}: #{error.message}"

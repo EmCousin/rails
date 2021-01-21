@@ -225,7 +225,7 @@ class MigrationTest < ActiveRecord::TestCase
           assert_match(/check that column\/key exists/, error.message)
         end
       elsif current_adapter?(:PostgreSQLAdapter)
-        assert_match(/column \"last_name\" of relation \"people\" does not exist/, error.message)
+        assert_match(/column "last_name" of relation "people" does not exist/, error.message)
       end
     end
   ensure
@@ -654,6 +654,56 @@ class MigrationTest < ActiveRecord::TestCase
   ensure
     ActiveRecord::Base.connection.instance_variable_set("@config", original_config)
     ActiveRecord::InternalMetadata.create_table
+  end
+
+  def test_internal_metadata_create_table_wont_be_affected_by_schema_cache
+    ActiveRecord::InternalMetadata.drop_table
+    assert_not_predicate ActiveRecord::InternalMetadata, :table_exists?
+
+    ActiveRecord::InternalMetadata.connection.transaction do
+      ActiveRecord::InternalMetadata.create_table
+      assert_predicate ActiveRecord::InternalMetadata, :table_exists?
+
+      ActiveRecord::InternalMetadata[:version] = "foo"
+      assert_equal "foo", ActiveRecord::InternalMetadata[:version]
+      raise ActiveRecord::Rollback
+    end
+
+    ActiveRecord::InternalMetadata.connection.transaction do
+      ActiveRecord::InternalMetadata.create_table
+      assert_predicate ActiveRecord::InternalMetadata, :table_exists?
+
+      ActiveRecord::InternalMetadata[:version] = "bar"
+      assert_equal "bar", ActiveRecord::InternalMetadata[:version]
+      raise ActiveRecord::Rollback
+    end
+  ensure
+    ActiveRecord::InternalMetadata.create_table
+  end
+
+  def test_schema_migration_create_table_wont_be_affected_by_schema_cache
+    ActiveRecord::SchemaMigration.drop_table
+    assert_not_predicate ActiveRecord::SchemaMigration, :table_exists?
+
+    ActiveRecord::SchemaMigration.connection.transaction do
+      ActiveRecord::SchemaMigration.create_table
+      assert_predicate ActiveRecord::SchemaMigration, :table_exists?
+
+      schema_migration = ActiveRecord::SchemaMigration.create!(version: "foo")
+      assert_equal "foo", schema_migration[:version]
+      raise ActiveRecord::Rollback
+    end
+
+    ActiveRecord::SchemaMigration.connection.transaction do
+      ActiveRecord::SchemaMigration.create_table
+      assert_predicate ActiveRecord::SchemaMigration, :table_exists?
+
+      schema_migration = ActiveRecord::SchemaMigration.create!(version: "bar")
+      assert_equal "bar", schema_migration[:version]
+      raise ActiveRecord::Rollback
+    end
+  ensure
+    ActiveRecord::SchemaMigration.create_table
   end
 
   def test_proper_table_name_on_migration

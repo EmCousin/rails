@@ -50,7 +50,10 @@ module Rails
           middleware.use ::Rails::Rack::Logger, config.log_tags
           middleware.use ::ActionDispatch::ShowExceptions, show_exceptions_app
           middleware.use ::ActionDispatch::DebugExceptions, app, config.debug_exception_response_format
-          middleware.use ::ActionDispatch::ActionableExceptions
+
+          if config.consider_all_requests_local
+            middleware.use ::ActionDispatch::ActionableExceptions
+          end
 
           unless config.cache_classes
             middleware.use ::ActionDispatch::Reloader, app.reloader
@@ -69,7 +72,7 @@ module Rails
 
           unless config.api_only
             middleware.use ::ActionDispatch::ContentSecurityPolicy::Middleware
-            middleware.use ::ActionDispatch::FeaturePolicy::Middleware
+            middleware.use ::ActionDispatch::PermissionsPolicy::Middleware
           end
 
           middleware.use ::Rack::Head

@@ -132,13 +132,15 @@ module Rails
     end
 
     def config_when_updating
-      cookie_serializer_config_exist = File.exist?("config/initializers/cookies_serializer.rb")
-      action_cable_config_exist      = File.exist?("config/cable.yml")
-      active_storage_config_exist    = File.exist?("config/storage.yml")
-      rack_cors_config_exist         = File.exist?("config/initializers/cors.rb")
-      assets_config_exist            = File.exist?("config/initializers/assets.rb")
-      csp_config_exist               = File.exist?("config/initializers/content_security_policy.rb")
-      feature_policy_config_exist    = File.exist?("config/initializers/feature_policy.rb")
+      cookie_serializer_config_exist  = File.exist?("config/initializers/cookies_serializer.rb")
+      action_cable_config_exist       = File.exist?("config/cable.yml")
+      active_storage_config_exist     = File.exist?("config/storage.yml")
+      rack_cors_config_exist          = File.exist?("config/initializers/cors.rb")
+      assets_config_exist             = File.exist?("config/initializers/assets.rb")
+      asset_manifest_exist            = File.exist?("app/assets/config/manifest.js")
+      asset_app_stylesheet_exist      = File.exist?("app/assets/stylesheets/application.css")
+      csp_config_exist                = File.exist?("config/initializers/content_security_policy.rb")
+      permissions_policy_config_exist = File.exist?("config/initializers/permissions_policy.rb")
 
       @config_target_version = Rails.application.config.loaded_config_version || "5.0"
 
@@ -161,6 +163,14 @@ module Rails
         remove_file "config/initializers/assets.rb"
       end
 
+      if options[:skip_sprockets] && !asset_manifest_exist
+        remove_file "app/assets/config/manifest.js"
+      end
+
+      if options[:skip_sprockets] && !asset_app_stylesheet_exist
+        remove_file "app/assets/stylesheets/application.css"
+      end
+
       unless rack_cors_config_exist
         remove_file "config/initializers/cors.rb"
       end
@@ -174,8 +184,8 @@ module Rails
           remove_file "config/initializers/content_security_policy.rb"
         end
 
-        unless feature_policy_config_exist
-          remove_file "config/initializers/feature_policy.rb"
+        unless permissions_policy_config_exist
+          remove_file "config/initializers/permissions_policy.rb"
         end
       end
     end
@@ -491,6 +501,8 @@ module Rails
       def delete_assets_initializer_skipping_sprockets
         if options[:skip_sprockets]
           remove_file "config/initializers/assets.rb"
+          remove_file "app/assets/config/manifest.js"
+          remove_file "app/assets/stylesheets/application.css"
         end
       end
 
@@ -527,7 +539,7 @@ module Rails
         if options[:api]
           remove_file "config/initializers/cookies_serializer.rb"
           remove_file "config/initializers/content_security_policy.rb"
-          remove_file "config/initializers/feature_policy.rb"
+          remove_file "config/initializers/permissions_policy.rb"
         end
       end
 
@@ -539,7 +551,7 @@ module Rails
 
       def delete_new_framework_defaults
         unless options[:update]
-          remove_file "config/initializers/new_framework_defaults_6_1.rb"
+          remove_file "config/initializers/new_framework_defaults_6_2.rb"
         end
       end
 

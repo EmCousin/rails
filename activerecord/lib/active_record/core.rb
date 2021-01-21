@@ -166,10 +166,18 @@ module ActiveRecord
       end
 
       def self.connection_handlers
+        unless legacy_connection_handling
+          raise NotImplementedError, "The new connection handling does not support accessing multiple connection handlers."
+        end
+
         @@connection_handlers ||= {}
       end
 
       def self.connection_handlers=(handlers)
+        unless legacy_connection_handling
+          raise NotImplementedError, "The new connection handling does not setting support multiple connection handlers."
+        end
+
         @@connection_handlers = handlers
       end
 
@@ -269,14 +277,14 @@ module ActiveRecord
       self.default_role = writing_role
       self.default_shard = :default
 
-      def self.strict_loading_violation!(owner:, association:) # :nodoc:
+      def self.strict_loading_violation!(owner:, reflection:) # :nodoc:
         case action_on_strict_loading_violation
         when :raise
-          message = "`#{association}` called on `#{owner}` is marked for strict_loading and cannot be lazily loaded."
+          message = "`#{owner}` is marked for strict_loading. The `#{reflection.klass}` association named `:#{reflection.name}` cannot be lazily loaded."
           raise ActiveRecord::StrictLoadingViolationError.new(message)
         when :log
           name = "strict_loading_violation.active_record"
-          ActiveSupport::Notifications.instrument(name, owner: owner, association: association)
+          ActiveSupport::Notifications.instrument(name, owner: owner, reflection: reflection)
         end
       end
     end
@@ -324,31 +332,37 @@ module ActiveRecord
         hash = args.first
         return super unless Hash === hash
 
-        values = hash.values.map! { |value| value.is_a?(Base) ? value.id : value }
-        return super if values.any? { |v| StatementCache.unsupported_value?(v) }
+        hash = hash.each_with_object({}) do |(key, value), h|
+          key = key.to_s
+          key = attribute_aliases[key] || key
 
-        keys = hash.keys.map! do |key|
-          attribute_aliases[name = key.to_s] || begin
-            reflection = _reflect_on_association(name)
-            if reflection&.belongs_to? && !reflection.polymorphic?
-              reflection.join_foreign_key
-            elsif reflect_on_aggregation(name)
-              return super
-            else
-              name
-            end
+          return super if reflect_on_aggregation(key)
+
+          reflection = _reflect_on_association(key)
+
+          if !reflection
+            value = value.id if value.respond_to?(:id)
+          elsif reflection.belongs_to? && !reflection.polymorphic?
+            key = reflection.join_foreign_key
+            pkey = reflection.join_primary_key
+            value = value.public_send(pkey) if value.respond_to?(pkey)
           end
+
+          if !columns_hash.key?(key) || StatementCache.unsupported_value?(value)
+            return super
+          end
+
+          h[key] = value
         end
 
-        return super unless keys.all? { |k| columns_hash.key?(k) }
-
+        keys = hash.keys
         statement = cached_find_by_statement(keys) { |params|
           wheres = keys.index_with { params.bind }
           where(wheres).limit(1)
         }
 
         begin
-          statement.execute(values, connection).first
+          statement.execute(hash.values, connection).first
         rescue TypeError
           raise ActiveRecord::StatementInvalid
         end
@@ -425,10 +439,6 @@ module ActiveRecord
 
       def type_caster # :nodoc:
         TypeCaster::Map.new(self)
-      end
-
-      def _internal? # :nodoc:
-        false
       end
 
       def cached_find_by_statement(key, &block) # :nodoc:
@@ -664,14 +674,7 @@ module ActiveRecord
       inspection = if defined?(@attributes) && @attributes
         self.class.attribute_names.collect do |name|
           if _has_attribute?(name)
-            attr = _read_attribute(name)
-            value = if attr.nil?
-              attr.inspect
-            else
-              attr = format_for_inspect(attr)
-              inspection_filter.filter_param(name, attr)
-            end
-            "#{name}: #{value}"
+            "#{name}: #{attribute_for_inspect(name)}"
           end
         end.compact.join(", ")
       else

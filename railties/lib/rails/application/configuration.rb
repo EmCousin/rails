@@ -73,7 +73,7 @@ module Rails
         @autoloader                              = :classic
         @disable_sandbox                         = false
         @add_autoload_paths_to_load_path         = true
-        @feature_policy                          = nil
+        @permissions_policy                      = nil
         @rake_eager_load                         = false
       end
 
@@ -116,7 +116,7 @@ module Rails
 
           if respond_to?(:active_support)
             active_support.use_authenticated_message_encryption = true
-            active_support.hash_digest_class = ::Digest::SHA1
+            active_support.hash_digest_class = OpenSSL::Digest::SHA1
           end
 
           if respond_to?(:action_controller)
@@ -163,10 +163,6 @@ module Rails
             active_record.legacy_connection_handling = false
           end
 
-          if respond_to?(:active_storage)
-            active_storage.track_variants = true
-          end
-
           if respond_to?(:active_job)
             active_job.retry_jitter = 0.15
             active_job.skip_after_callbacks_if_terminated = true
@@ -181,7 +177,39 @@ module Rails
             action_controller.urlsafe_csrf_tokens = true
           end
 
+          if respond_to?(:action_view)
+            action_view.form_with_generates_remote_forms = false
+            action_view.preload_links_header = true
+          end
+
+          if respond_to?(:active_storage)
+            active_storage.track_variants = true
+
+            active_storage.queues.analysis = nil
+            active_storage.queues.purge = nil
+          end
+
+          if respond_to?(:action_mailbox)
+            action_mailbox.queues.incineration = nil
+            action_mailbox.queues.routing = nil
+          end
+
+          if respond_to?(:action_mailer)
+            action_mailer.deliver_later_queue_name = nil
+          end
+
           ActiveSupport.utc_to_local_returns_utc_offset_times = true
+        when "6.2"
+          load_defaults "6.1"
+
+          if respond_to?(:action_view)
+            action_view.button_to_generates_button_tag = true
+          end
+
+          if respond_to?(:active_support)
+            active_support.hash_digest_class = OpenSSL::Digest::SHA256
+            active_support.key_generator_hash_digest_class = OpenSSL::Digest::SHA256
+          end
         else
           raise "Unknown version #{target_version.to_s.inspect}"
         end
@@ -325,11 +353,11 @@ module Rails
         end
       end
 
-      def feature_policy(&block)
+      def permissions_policy(&block)
         if block_given?
-          @feature_policy = ActionDispatch::FeaturePolicy.new(&block)
+          @permissions_policy = ActionDispatch::PermissionsPolicy.new(&block)
         else
-          @feature_policy
+          @permissions_policy
         end
       end
 

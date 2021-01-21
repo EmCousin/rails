@@ -86,6 +86,7 @@ ActiveRecord::Schema.define do
     t.string :name
     t.binary :data
     t.binary :short_data, limit: 2048
+    t.blob :blob_data
   end
 
   create_table :birds, force: true do |t|
@@ -152,13 +153,23 @@ ActiveRecord::Schema.define do
 
   create_table :carriers, force: true
 
+  create_table :carts, force: true, primary_key: [:shop_id, :id] do |t|
+    if current_adapter?(:Mysql2Adapter)
+      t.bigint :id, index: true, auto_increment: true, null: false
+    else
+      t.bigint :id, index: true, null: false
+    end
+    t.bigint :shop_id
+    t.string :title
+  end
+
   create_table :categories, force: true do |t|
     t.string :name, null: false
     t.string :type
     t.integer :categorizations_count
   end
 
-  create_table :categories_posts, force: true, id: false do |t|
+  create_table :categories_posts, force: true do |t|
     t.integer :category_id, null: false
     t.integer :post_id, null: false
   end
@@ -254,6 +265,7 @@ ActiveRecord::Schema.define do
     t.string :system
     t.integer :developer, null: false
     t.integer :extendedWarranty, null: false
+    t.integer :timezone
   end
 
   create_table :computers_developers, id: false, force: true do |t|
@@ -396,6 +408,7 @@ ActiveRecord::Schema.define do
   end
 
   create_table :essays, force: true do |t|
+    t.string :type
     t.string :name
     t.string :writer_id
     t.string :writer_type
@@ -642,6 +655,7 @@ ActiveRecord::Schema.define do
     t.decimal :my_house_population, precision: 2, scale: 0
     t.decimal :decimal_number
     t.decimal :decimal_number_with_default, precision: 3, scale: 2, default: 2.78
+    t.numeric :numeric_number
     t.float   :temperature
     t.decimal :decimal_number_big_precision, precision: 20
     # Oracle/SQLServer supports precision up to 38
@@ -861,6 +875,11 @@ ActiveRecord::Schema.define do
     t.integer :job_id
     t.boolean :favourite
     t.integer :lock_version, default: 0
+  end
+
+  create_table :rooms, force: true do |t|
+    t.references :user
+    t.references :owner
   end
 
   disable_referential_integrity do
@@ -1083,6 +1102,10 @@ ActiveRecord::Schema.define do
   end
 
   create_table :zines, force: true do |t|
+    t.string :title
+  end
+
+  create_table :strict_zines, force: true do |t|
     t.string :title
   end
 

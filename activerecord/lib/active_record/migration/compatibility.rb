@@ -13,7 +13,10 @@ module ActiveRecord
         const_get(name)
       end
 
-      V6_1 = Current
+      V6_2 = Current
+
+      class V6_1 < V6_2
+      end
 
       class V6_0 < V6_1
         class ReferenceDefinition < ConnectionAdapters::ReferenceDefinition
@@ -56,7 +59,8 @@ module ActiveRecord
         end
 
         def add_reference(table_name, ref_name, **options)
-          ReferenceDefinition.new(ref_name, **options).add_to(update_table_definition(table_name, self))
+          ReferenceDefinition.new(ref_name, **options)
+            .add_to(connection.update_table_definition(table_name, self))
         end
         alias :add_belongs_to :add_reference
 
